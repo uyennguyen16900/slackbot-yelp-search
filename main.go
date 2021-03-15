@@ -2,20 +2,32 @@ package main
 
 import (
 	"log"
+	"os"
 
+	"github.com/joho/godotenv"
 	"github.com/slack-go/slack"
 )
 
-func main() {
+func getEnvVars() {
+	err := godotenv.Load("credentials.env")
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+}
 
-	api := slack.New(OAUTH_TOKEN)
+func main() {
+	getEnvVars()
+	oauthToken := os.Getenv("OAUTH_TOKEN")
+	channelID := os.Getenv("CHANNEL_ID")
+
+	api := slack.New(oauthToken)
 	attachment := slack.Attachment{
 		Pretext: "Pretext",
 		Text:    "Hello from GolangDocs",
 	}
 
 	channelID, timestamp, err := api.PostMessage(
-		CHANNEL_ID,
+		channelID,
 		slack.MsgOptionText("This is the main message", false),
 		slack.MsgOptionAttachments(attachment),
 		slack.MsgOptionAsUser(true),
