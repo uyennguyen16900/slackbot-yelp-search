@@ -7,8 +7,6 @@ import (
 )
 
 func main() {
-	OAUTH_TOKEN := "xoxb-1303899646098-1846760895863-7I0u8xonCO69oxKOTlVC7rzJ"
-	CHANNEL_ID := "C01R8CRBX1B"
 
 	api := slack.New(OAUTH_TOKEN)
 	attachment := slack.Attachment{
