@@ -36,9 +36,9 @@ yelp_web_client = Client(os.environ['YELP_API_KEY'])
 # print(data['businesses'])
 
 # ======================
-class Yelp:
-    def __init__(self):
-        self.api_host = os.environ['API_HOST']
+class Event:
+    def __init__(self, term):
+        self.term = term
         self.search_api_url = os.environ['SEARCH_API_URL']
         self.default_location = os.environ['DEFAULT_LOCATION']
         self.api_key = os.environ['YELP_API_KEY']
@@ -46,15 +46,23 @@ class Yelp:
             'Authorization': 'Bearer %s' % self.api_key,
         }
 
-    def search(self, term):
+    def search(self):
         params = {
-            'term': term,
-            'location': DEFAULT_LOCATION,
+            'term': self.term,
+            'location': self.default_location,
+            'open_now': True,
             'limit': 5
         }
 
-        response = requests.get(self.search_api_url, headers=headers, params=parmas)
-        return response.json()[businesses]
+        response = requests.get(self.search_api_url, headers=self.headers, params=params)
+        return self.display_search(response.json()['businesses'])
+    
+    def display_search(self, response):
+        message, i = "", 0
+        for venue in response:
+            if not venue['is_closed']:
+                message += "{} - {} :star2: Yelp: {} \n".format(venue['name'], venue['rating'], venue['url'])
+        return message
     
     def change_location(self, location):
         self.default_location = location
@@ -71,10 +79,12 @@ def handle_message(payload):
         message = "Hello <@%s>! :wave:" % user_id
 
     if "search" in text.lower():
-        return search(text[6:])
+        term = Event(text[6:])
+        message = term.search()
     
     if "set location" in text.lower():
-        change_location(text[12:])
+        term = Message(text[12:])
+        change_location(term)
         message = 'Your default location has been set to: ' + text[12:]
     
     if BOT_ID != user_id:
