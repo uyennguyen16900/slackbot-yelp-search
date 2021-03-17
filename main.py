@@ -33,42 +33,50 @@ search_api_url = 'https://api.yelp.com/v3/businesses/search'
 response = requests.get(search_api_url, headers=headers, params=params, timeout=5)
 # print(response.url)
 data = response.json()
-print(data['businesses'][1]['review_count'])
+print(data['businesses'][1])
 
 # ======================
-class Event:
-    def __init__(self, term):
-        self.term = term
-        self.search_api_url = os.environ['SEARCH_API_URL']
-        self.default_location = os.environ['DEFAULT_LOCATION']
-        self.api_key = os.environ['YELP_API_KEY']
-        self.headers = {
-            'Authorization': 'Bearer %s' % self.api_key,
-        }
+search_api_url = os.environ['SEARCH_API_URL']
+default_location = os.environ['DEFAULT_LOCATION']
+default_limit = os.environ['DEFAULT_LIMIT']
+api_key = os.environ['YELP_API_KEY']
+headers = {
+    'Authorization': 'Bearer %s' % api_key,
+}
 
-    def search(self):
-        params = {
-            'term': self.term,
-            'location': self.default_location,
-            'open_now': True,
-            'limit': 5
-        }
+def search(term):
+    params = {
+        'term': term,
+        'location': default_location,
+        'open_now': True,
+        'limit': default_limit
+    }
 
-        response = requests.get(self.search_api_url, headers=self.headers, params=params)
-        return self.display_search(response.json()['businesses'])
-    
-    def display_search(self, response):
-        message, i = "", 0
-        for venue in response:
-            categories = []
-            if not venue['is_closed']:
-                [categories.append(a['title']) for a in venue['categories']]
-                message += "{name} - {rating} :star: {review_count} reviews Categories: {categories} Yelp: {yelp_url} \n".format(name=venue['name'], rating=venue['rating'], review_count=venue['review_count'], categories=", ".join(categories), yelp_url=venue['url'])
-        return message
-    
-    def change_location(self, location):
-        self.default_location = location
+    response = requests.get(search_api_url, headers=headers, params=params)
+    return response.json()['businesses']
 
+def display_search(response):
+    if not response:
+        return ":x: No businesses found."
+
+    message = ":tada: I found {} results.\n".format(len(response))
+    i = 1
+    for venue in response:
+        categories = []
+        if not venue['is_closed']:
+            [categories.append(a['title']) for a in venue['categories']]
+            message += "*{order}. <{yelp_url}|{name}> - {rating} :star:* {review_count} reviews\n_{categories}_\n:phone: {phone}\n".format(order=i, 
+                        name=venue['name'], 
+                        rating=venue['rating'], 
+                        review_count=venue['review_count'], 
+                        categories=", ".join(categories), 
+                        phone=venue['display_phone'],
+                        yelp_url=venue['url'])
+            i += 1
+    return message
+
+def change_location(location):
+    default_location = location
 
 @slack_event_adapter.on('message')
 def handle_message(payload):
@@ -80,13 +88,15 @@ def handle_message(payload):
     if "hi" or "hello" in text.lower():
         message = "Hello <@%s>! :wave:" % user_id
 
+    if "help" in text.lower():
+
+        
     if "search" in text.lower():
-        term = Event(text[6:])
-        message = term.search()
+        responses = search(text[6:])
+        message = display_search(responses)
     
     if "set location" in text.lower():
-        term = Event(text[12:])
-        term.change_location(term)
+        change_location(text[12:])
         message = 'Your default location has been set to: ' + text[12:]
     
     if BOT_ID != user_id:
