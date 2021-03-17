@@ -23,17 +23,17 @@ BOT_ID = slack_web_client.api_call("auth.test")['user_id']
 yelp_web_client = Client(os.environ['YELP_API_KEY'])
 
 # def search(item):
-# headers = {'Authorization': 'Bearer {}'.format(os.environ['YELP_API_KEY'])}
+headers = {'Authorization': 'Bearer {}'.format(os.environ['YELP_API_KEY'])}
 
-# params = {'term': 'popcorn chicken',
-#         'location': 'San Francisco',
-#         'limit': 10}
-# search_api_url = 'https://api.yelp.com/v3/businesses/search'
+params = {'term': 'popcorn chicken',
+        'location': 'San Francisco',
+        'limit': 2}
+search_api_url = 'https://api.yelp.com/v3/businesses/search'
 
-# response = requests.get(search_api_url, headers=headers, params=params, timeout=5)
-# # print(response.url)
-# data = response.json()
-# print(data['businesses'])
+response = requests.get(search_api_url, headers=headers, params=params, timeout=5)
+# print(response.url)
+data = response.json()
+print(data['businesses'][1]['review_count'])
 
 # ======================
 class Event:
@@ -60,8 +60,10 @@ class Event:
     def display_search(self, response):
         message, i = "", 0
         for venue in response:
+            categories = []
             if not venue['is_closed']:
-                message += "{} - {} :star2: Yelp: {} \n".format(venue['name'], venue['rating'], venue['url'])
+                [categories.append(a['title']) for a in venue['categories']]
+                message += "{name} - {rating} :star: {review_count} reviews Categories: {categories} Yelp: {yelp_url} \n".format(name=venue['name'], rating=venue['rating'], review_count=venue['review_count'], categories=", ".join(categories), yelp_url=venue['url'])
         return message
     
     def change_location(self, location):
@@ -83,15 +85,14 @@ def handle_message(payload):
         message = term.search()
     
     if "set location" in text.lower():
-        term = Message(text[12:])
-        change_location(term)
+        term = Event(text[12:])
+        term.change_location(term)
         message = 'Your default location has been set to: ' + text[12:]
     
     if BOT_ID != user_id:
         slack_web_client.chat_postMessage(channel=channel_id, text=message)
 
 
-        # slack_web_client.chat_postMessage(channel=channel_id, text=text[6:])
 
 @app.route('/crave', methods=['GET', 'POST'])
 def crave():
