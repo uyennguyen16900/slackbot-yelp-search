@@ -56,11 +56,12 @@ def display_search(response, location):
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": "*{name} - {rating} :star:* {review_count} reviews\n_{categories}_\n:phone: {phone}\n".format(name=venue['name'], 
-                                    rating=venue['rating'], 
-                                    review_count=venue['review_count'], 
-                                    categories=", ".join(categories), 
-                                    phone=venue['display_phone'])
+                        "text": "*{name} - {rating} :star:* {review_count} reviews\n_{categories}_\n:phone: {phone}\n".format(
+                                name=venue['name'], 
+                                rating=venue['rating'], 
+                                review_count=venue['review_count'], 
+                                categories=", ".join(categories), 
+                                phone=venue['display_phone'])
                     },
                     "accessory": {
                         "type": "image",
@@ -68,7 +69,27 @@ def display_search(response, location):
                         "alt_text": "alt text for image"
                     }
                 }
-            message["blocks"].append(section)
+
+            
+            button = {
+                    "type": "actions",
+                    "elements": [
+                        {
+                            "type": "button",
+                            "text": {
+                                "type": "plain_text",
+                                "text": venue['name'],
+                                "emoji": True
+                            },
+                            "value": "click_me_123",
+                            "url": venue['url']
+                        },
+                    ]
+                }
+            
+            for item in [section, button]:
+                message["blocks"].append(item)
+
     return message
 # msg = {
 # 	"blocks": [
