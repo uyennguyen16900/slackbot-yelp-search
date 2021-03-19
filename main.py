@@ -32,6 +32,94 @@ headers = {
     'Authorization': 'Bearer %s' % api_key,
 }
 
+
+def display_search(response, location):
+    message = {
+        "blocks": [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": ":tada: I found {} results in {}.\n".format(len(response), location or default_location)
+                }
+            },
+            {
+                "type": "divider"
+            },
+        ]}
+
+    for venue in response:
+        categories = []
+        if not venue['is_closed']:
+            [categories.append(a['title']) for a in venue['categories']]
+            section = {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "*{name} - {rating} :star:* {review_count} reviews\n_{categories}_\n:phone: {phone}\n".format(name=venue['name'], 
+                                    rating=venue['rating'], 
+                                    review_count=venue['review_count'], 
+                                    categories=", ".join(categories), 
+                                    phone=venue['display_phone'])
+                    },
+                    "accessory": {
+                        "type": "image",
+                        "image_url": venue['image_url'],
+                        "alt_text": "alt text for image"
+                    }
+                }
+            message["blocks"].append(section)
+    return message
+# msg = {
+# 	"blocks": [
+# 		{
+# 			"type": "section",
+# 			"text": {
+# 				"type": "mrkdwn",
+# 				"text": ":tada: I found {} results in {}.\n".format(len(response), location or default_location)
+# 			}
+# 		},
+# 		{
+# 			"type": "divider"
+# 		},
+# 		{
+# 			"type": "section",
+# 			"text": {
+# 				"type": "mrkdwn",
+# 				"text": "*{name}> - {rating} :star:* {review_count} reviews\n_{categories}_\n:phone: {phone}\n".format(
+#                         name=venue['name'], 
+#                         rating=venue['rating'], 
+#                         review_count=venue['review_count'], 
+#                         categories=", ".join(categories), 
+#                         phone=venue['display_phone'])
+# 			},
+# 			"accessory": {
+# 				"type": "image",
+# 				"image_url": venue['image_url'],
+# 				"alt_text": "alt text for image"
+# 			}
+# 		},
+# 		{
+# 			"type": "divider"
+# 		},
+# 		{
+# 			"type": "actions",
+# 			"elements": [
+# 				{
+# 					"type": "button",
+# 					"text": {
+# 						"type": "plain_text",
+# 						"text": venue['image_url'],
+# 						"emoji": True
+# 					},
+# 					"value": "click_me_123",
+# 					"url": venue['url']
+# 				},
+# 			]
+# 		}
+# 	]
+# }
+
 # ========================
 params = {'term': 'popcorn chicken',
         'location': 'San Francisco',
@@ -43,8 +131,6 @@ data = response.json()
 print(data['businesses'][1])
 
 # ======================
-
-
 def search(term, location):
     params = {
         'term': term,
@@ -56,7 +142,7 @@ def search(term, location):
     response = requests.get(search_api_url, headers=headers, params=params)
     return response.json()['businesses']
 
-def display_search(response, location):
+def display_search1(response, location):
     if not response:
         return ":x: No businesses found."
 
@@ -88,8 +174,10 @@ def handle_message(payload):
     message = None
     if "hi" or "hello" in text.lower():
         message = "Hello <@%s>! :wave:" % user_id
+
     if "help" in text.lower():
-        message = "help!!"
+        slack_web_client.chat_postMessage(channel=channel_id, **msg)
+
     if "search" in text.lower():
         user_response = text[6:].split(",")
         location = None
@@ -98,14 +186,13 @@ def handle_message(payload):
         term = user_response[0]
         result = search(term, location)
         message = display_search(result, location)
+        slack_web_client.chat_postMessage(channel=channel_id, **message)
+        return
 
     if BOT_ID != user_id:
         slack_web_client.chat_postMessage(channel=channel_id, text=message or default_message)
 
-
-@app.route('/crave', methods=['GET', 'POST'])
-def crave():
-    return Response(), 200
-
 if __name__ == "__main__":
     app.run(debug=True)
+    
+    
