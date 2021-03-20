@@ -69,8 +69,23 @@ def display_search(response, location):
                         "alt_text": "alt text for image"
                     }
                 }
-
             
+            location = {
+                    "type": "context",
+                    "elements": [
+                        {
+                            "type": "image",
+                            "image_url": "https://api.slack.com/img/blocks/bkb_template_images/tripAgentLocationMarker.png",
+                            "alt_text": "Location Pin Icon"
+                        },
+                        {
+                            "type": "plain_text",
+                            "emoji": True,
+                            "text": "".join(venue['location']['display_address'])
+                        }
+                    ]
+                }
+
             button = {
                     "type": "actions",
                     "elements": [
@@ -78,16 +93,17 @@ def display_search(response, location):
                             "type": "button",
                             "text": {
                                 "type": "plain_text",
-                                "text": venue['name'],
+                                "text": "Go to Yelp",
                                 "emoji": True
                             },
+                            "style": "danger",
                             "value": "click_me_123",
                             "url": venue['url']
                         },
                     ]
                 }
             
-            for item in [section, button]:
+            for item in [section, location, button]:
                 message["blocks"].append(item)
 
     return message
