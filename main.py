@@ -13,7 +13,6 @@ load_dotenv(dotenv_path=env_path)
 
 app = Flask(__name__)
 
-
 # Create an events adapter and register it to an endpoint in the slack app for event injestion.
 slack_event_adapter = SlackEventAdapter(
     os.environ['SIGNING_SECRET'], '/slack/events', app)
@@ -32,8 +31,10 @@ headers = {
     'Authorization': 'Bearer %s' % api_key,
 }
 
-
 def display_search(response, location):
+    if not response:
+        return ":x: No businesses found."
+
     message = {
         "blocks": [
             {
@@ -43,25 +44,31 @@ def display_search(response, location):
                     "text": ":tada: I found {} results in {}.\n".format(len(response), location or default_location)
                 }
             },
-            {
-                "type": "divider"
-            },
         ]}
 
     for venue in response:
         categories = []
         if not venue['is_closed']:
             [categories.append(a['title']) for a in venue['categories']]
+            divider = {
+                    "type": "divider"
+                }
+
+            trans = ":heavy_check_mark:" + " Takeout"
+            if "delivery" in venue['transactions']:
+                trans += " :heavy_check_mark: " + "Delivery"
+
             section = {
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": "*{name} - {rating} :star:* {review_count} reviews\n_{categories}_\n:phone: {phone}\n".format(
+                        "text": "*{name}* - {rating} :star: {review_count} reviews\n_{categories}_\nPhone: {phone}\n{trans}\n".format(
                                 name=venue['name'], 
                                 rating=venue['rating'], 
-                                review_count=venue['review_count'], 
+                                review_count=venue['review_count'],
                                 categories=", ".join(categories), 
-                                phone=venue['display_phone'])
+                                phone=venue['display_phone'],
+                                trans=trans)
                     },
                     "accessory": {
                         "type": "image",
@@ -81,7 +88,7 @@ def display_search(response, location):
                         {
                             "type": "plain_text",
                             "emoji": True,
-                            "text": "".join(venue['location']['display_address'])
+                            "text": ", ".join(venue['location']['display_address'])
                         }
                     ]
                 }
@@ -96,67 +103,16 @@ def display_search(response, location):
                                 "text": "Go to Yelp",
                                 "emoji": True
                             },
-                            "style": "danger",
                             "value": "click_me_123",
                             "url": venue['url']
                         },
                     ]
                 }
             
-            for item in [section, location, button]:
+            for item in [divider, section, location, button]:
                 message["blocks"].append(item)
 
     return message
-# msg = {
-# 	"blocks": [
-# 		{
-# 			"type": "section",
-# 			"text": {
-# 				"type": "mrkdwn",
-# 				"text": ":tada: I found {} results in {}.\n".format(len(response), location or default_location)
-# 			}
-# 		},
-# 		{
-# 			"type": "divider"
-# 		},
-# 		{
-# 			"type": "section",
-# 			"text": {
-# 				"type": "mrkdwn",
-# 				"text": "*{name}> - {rating} :star:* {review_count} reviews\n_{categories}_\n:phone: {phone}\n".format(
-#                         name=venue['name'], 
-#                         rating=venue['rating'], 
-#                         review_count=venue['review_count'], 
-#                         categories=", ".join(categories), 
-#                         phone=venue['display_phone'])
-# 			},
-# 			"accessory": {
-# 				"type": "image",
-# 				"image_url": venue['image_url'],
-# 				"alt_text": "alt text for image"
-# 			}
-# 		},
-# 		{
-# 			"type": "divider"
-# 		},
-# 		{
-# 			"type": "actions",
-# 			"elements": [
-# 				{
-# 					"type": "button",
-# 					"text": {
-# 						"type": "plain_text",
-# 						"text": venue['image_url'],
-# 						"emoji": True
-# 					},
-# 					"value": "click_me_123",
-# 					"url": venue['url']
-# 				},
-# 			]
-# 		}
-# 	]
-# }
-
 # ========================
 params = {'term': 'popcorn chicken',
         'location': 'San Francisco',
@@ -165,7 +121,7 @@ params = {'term': 'popcorn chicken',
 response = requests.get(search_api_url, headers=headers, params=params, timeout=5)
 # print(response.url)
 data = response.json()
-print(data['businesses'][1])
+print(data['businesses'][1]['price'])
 
 # ======================
 def search(term, location):
@@ -179,26 +135,8 @@ def search(term, location):
     response = requests.get(search_api_url, headers=headers, params=params)
     return response.json()['businesses']
 
-def display_search1(response, location):
-    if not response:
-        return ":x: No businesses found."
-
-    message = ":tada: I found {} results in {}.\n".format(len(response), location or default_location)
-
-    i = 1
-    for venue in response:
-        categories = []
-        if not venue['is_closed']:
-            [categories.append(a['title']) for a in venue['categories']]
-            message += "*{order}. <{yelp_url}|{name}> - {rating} :star:* {review_count} reviews\n_{categories}_\n:phone: {phone}\n".format(order=i, 
-                        name=venue['name'], 
-                        rating=venue['rating'], 
-                        review_count=venue['review_count'], 
-                        categories=", ".join(categories), 
-                        phone=venue['display_phone'],
-                        yelp_url=venue['url'])
-            i += 1
-    return message
+def change_location(location):
+    default_location = location
 
 @slack_event_adapter.on('message')
 def handle_message(payload):
@@ -226,8 +164,21 @@ def handle_message(payload):
         slack_web_client.chat_postMessage(channel=channel_id, **message)
         return
 
-    if BOT_ID != user_id:
+    if "set location" in text.lower():
+        change_location(text[13:])
+        message = "you changed location"
+
+    if user_id != None and BOT_ID != user_id:
         slack_web_client.chat_postMessage(channel=channel_id, text=message or default_message)
+
+@app.route('/search-term', methods=['POST'])
+def search_term(term):
+    data = request.form
+    user_id = data.get('user_id')
+    channel_id = data.get('channel_id')
+    slack_web_client.chat_postMessage(channel=channel_id, text=term)
+
+    return Response(), 200
 
 if __name__ == "__main__":
     app.run(debug=True)
