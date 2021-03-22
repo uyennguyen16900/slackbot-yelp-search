@@ -31,6 +31,49 @@ headers = {
     'Authorization': 'Bearer %s' % api_key,
 }
 
+class WelcomeMessage():
+    START_TEXT = {
+        'type': 'section',
+        'text': {
+            'type': 'mrkdwn',
+            'text': (
+                'Welcome to this channel! \n\n'
+                'Get started by completing the steps below.'
+            )
+        }
+    }
+
+    DIVIDER = {'type': 'divider'}
+
+    def __init__(seld, channel, user):
+        self.channel = channel
+        self.user = user
+        self.icon_emoji = ':robot_face'
+        self.timestamp = ''
+        self.completed = False
+    
+    def get_messgae(self):
+        return {
+            'ts': self.timestamp,
+            'channel': self.channel,
+            'icon_emoji': self.icon_emoji,
+            'block': [ 
+                self.START_TEXT,
+                self.DIVIDER,
+                *self._get_reaction_task()
+            ]
+        }
+    
+    def _get_reaction_task(self):
+        checkmark = ':white_check_mark:'
+        if not self.completed:
+            checkmark = ':white_large_square:'
+
+        text = f'{checkmark} * Add an emoji reaction to this.'
+
+        return [{'type': 'section', 'text': {'type': 'mrkdwn', 'text': text}}]
+
+
 def display_search(response, location):
     if not response:
         return ":x: No businesses found."
@@ -135,8 +178,11 @@ def search(term, location):
     response = requests.get(search_api_url, headers=headers, params=params)
     return response.json()['businesses']
 
-def change_location(location):
-    default_location = location
+def send_welcome_message(channel, user):
+    welcome = WelcomeMessage(channel, user)
+    message = welcome.get_message()
+    response = slack_web_client.chat_postMessage(**message)
+    welcome.timestamp = response['ts']
 
 @slack_event_adapter.on('message')
 def handle_message(payload):
@@ -147,38 +193,30 @@ def handle_message(payload):
 
     default_message = "I'm sorry. I don't understand. Please type *help* to see all commands."
     message = None
-    if "hi" or "hello" in text.lower():
-        message = "Hello <@%s>! :wave:" % user_id
-
-    if "help" in text.lower():
-        slack_web_client.chat_postMessage(channel=channel_id, **msg)
-
-    if "search" in text.lower():
-        user_response = text[6:].split(",")
-        location = None
-        if len(user_response) > 1:
-            location = user_response[1]
-        term = user_response[0]
-        result = search(term, location)
-        message = display_search(result, location)
-        slack_web_client.chat_postMessage(channel=channel_id, **message)
-        return
-
-    if "set location" in text.lower():
-        change_location(text[13:])
-        message = "you changed location"
 
     if user_id != None and BOT_ID != user_id:
+        if text.lower() in ['hello', 'hi', 'hey']:
+            message = "Hello <@%s>! :wave:" % user_id
+
+        if "help" in text.lower():
+            slack_web_client.chat_postMessage(channel=channel_id, **msg)
+
+        if "search" in text.lower():
+            user_response = text[6:].split(", ")
+            location = None
+            if len(user_response) > 1:
+                location = user_response[1]
+            term = user_response[0]
+            result = search(term, location)
+            message = display_search(result, location)
+            slack_web_client.chat_postMessage(channel=channel_id, **message)
+            return
+
+        if "set location" in text.lower():
+            change_location(text[13:])
+            message = "you changed location"
+
         slack_web_client.chat_postMessage(channel=channel_id, text=message or default_message)
-
-@app.route('/search-term', methods=['POST'])
-def search_term(term):
-    data = request.form
-    user_id = data.get('user_id')
-    channel_id = data.get('channel_id')
-    slack_web_client.chat_postMessage(channel=channel_id, text=term)
-
-    return Response(), 200
 
 if __name__ == "__main__":
     app.run(debug=True)
