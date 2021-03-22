@@ -31,7 +31,9 @@ headers = {
     'Authorization': 'Bearer %s' % api_key,
 }
 
-class WelcomeMessage():
+
+welcome_messages = {}
+class WelcomeMessage:
     START_TEXT = {
         'type': 'section',
         'text': {
@@ -45,19 +47,20 @@ class WelcomeMessage():
 
     DIVIDER = {'type': 'divider'}
 
-    def __init__(seld, channel, user):
+    def __init__(self, channel, user):
         self.channel = channel
         self.user = user
         self.icon_emoji = ':robot_face'
         self.timestamp = ''
         self.completed = False
     
-    def get_messgae(self):
+    def get_message(self):
         return {
             'ts': self.timestamp,
             'channel': self.channel,
             'icon_emoji': self.icon_emoji,
-            'block': [ 
+            'username': 'Welcome Bot!',
+            'blocks': [ 
                 self.START_TEXT,
                 self.DIVIDER,
                 *self._get_reaction_task()
@@ -69,7 +72,7 @@ class WelcomeMessage():
         if not self.completed:
             checkmark = ':white_large_square:'
 
-        text = f'{checkmark} * Add an emoji reaction to this.'
+        text = f'{checkmark} Add an emoji reaction to this.'
 
         return [{'type': 'section', 'text': {'type': 'mrkdwn', 'text': text}}]
 
@@ -184,6 +187,26 @@ def send_welcome_message(channel, user):
     response = slack_web_client.chat_postMessage(**message)
     welcome.timestamp = response['ts']
 
+    if channel not in welcome_messages:
+        welcome_messages[channel] = {}
+    welcome_messages[channel][user] = welcome
+
+@slack_event_adapter.on('reaction_added')
+def reaction(payload):
+    event = payload.get('event', {})
+    user_id = event.get('user')
+    channel_id = event.get('item', {}).get('channel')
+
+    if channel_id not in welcome_messages:
+        return
+    
+    welcome = welcome_messages[channel_id][user_id]
+    welcome.completed = True
+    message = welcome.get_message()
+    updated_message = slack_web_client.chat_update(**message)
+    welcome.timestamp = updated_message['ts']
+    
+
 @slack_event_adapter.on('message')
 def handle_message(payload):
     event = payload.get('event', {})
@@ -195,28 +218,29 @@ def handle_message(payload):
     message = None
 
     if user_id != None and BOT_ID != user_id:
-        if text.lower() in ['hello', 'hi', 'hey']:
-            message = "Hello <@%s>! :wave:" % user_id
+        if 'hello' or 'hi' in text.lower():
+            # message = "Hello <@%s>! :wave:" % user_id
+            send_welcome_message(channel_id, user_id)
 
-        if "help" in text.lower():
-            slack_web_client.chat_postMessage(channel=channel_id, **msg)
+        # if "help" in text.lower():
+        #     slack_web_client.chat_postMessage(channel=channel_id, **msg)
 
-        if "search" in text.lower():
-            user_response = text[6:].split(", ")
-            location = None
-            if len(user_response) > 1:
-                location = user_response[1]
-            term = user_response[0]
-            result = search(term, location)
-            message = display_search(result, location)
-            slack_web_client.chat_postMessage(channel=channel_id, **message)
-            return
+        # if "search" in text.lower():
+        #     user_response = text[6:].split(", ")
+        #     location = None
+        #     if len(user_response) > 1:
+        #         location = user_response[1]
+        #     term = user_response[0]
+        #     result = search(term, location)
+        #     message = display_search(result, location)
+        #     slack_web_client.chat_postMessage(channel=channel_id, **message)
+        #     return
 
-        if "set location" in text.lower():
-            change_location(text[13:])
-            message = "you changed location"
+        # if "set location" in text.lower():
+        #     change_location(text[13:])
+        #     message = "you changed location"
 
-        slack_web_client.chat_postMessage(channel=channel_id, text=message or default_message)
+        # slack_web_client.chat_postMessage(channel=channel_id, text=message or default_message)
 
 if __name__ == "__main__":
     app.run(debug=True)
