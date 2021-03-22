@@ -31,7 +31,6 @@ headers = {
     'Authorization': 'Bearer %s' % api_key,
 }
 
-
 welcome_messages = {}
 class WelcomeMessage:
     START_TEXT = {
@@ -39,8 +38,8 @@ class WelcomeMessage:
         'text': {
             'type': 'mrkdwn',
             'text': (
-                'Welcome to this channel! \n\n'
-                'Get started by completing the steps below.'
+                'Welcome to this awesome channel! :ramen:\n'
+                'Get started by completing the step below.'
             )
         }
     }
@@ -70,9 +69,9 @@ class WelcomeMessage:
     def _get_reaction_task(self):
         checkmark = ':white_check_mark:'
         if not self.completed:
-            checkmark = ':white_large_square:'
+            checkmark = ':white_medium_square:'
 
-        text = f'{checkmark} Add an emoji reaction to this.'
+        text = f'{checkmark} Add an emoji reaction to show how you feel today. :eyes:'
 
         return [{'type': 'section', 'text': {'type': 'mrkdwn', 'text': text}}]
 
@@ -87,7 +86,7 @@ def display_search(response, location):
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": ":tada: I found {} results in {}.\n".format(len(response), location or default_location)
+                    "text": "I found {} results in {}. :tada:\n".format(len(response), location or default_location)
                 }
             },
         ]}
@@ -127,14 +126,9 @@ def display_search(response, location):
                     "type": "context",
                     "elements": [
                         {
-                            "type": "image",
-                            "image_url": "https://api.slack.com/img/blocks/bkb_template_images/tripAgentLocationMarker.png",
-                            "alt_text": "Location Pin Icon"
-                        },
-                        {
                             "type": "plain_text",
                             "emoji": True,
-                            "text": ", ".join(venue['location']['display_address'])
+                            "text": ":round_pushpin:" + ", ".join(venue['location']['display_address'])
                         }
                     ]
                 }
@@ -159,17 +153,7 @@ def display_search(response, location):
                 message["blocks"].append(item)
 
     return message
-# ========================
-params = {'term': 'popcorn chicken',
-        'location': 'San Francisco',
-        'limit': 2}
 
-response = requests.get(search_api_url, headers=headers, params=params, timeout=5)
-# print(response.url)
-data = response.json()
-print(data['businesses'][1]['price'])
-
-# ======================
 def search(term, location):
     params = {
         'term': term,
@@ -191,6 +175,58 @@ def send_welcome_message(channel, user):
         welcome_messages[channel] = {}
     welcome_messages[channel][user] = welcome
 
+def show_commands(user):
+    return {
+        "blocks": [
+        {
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": "Hello <@%s> :wave: ! I'm so glad that you are here.\nYelp Search bot allows you perform Yelp search from right within Slack." % user
+            }
+        }],
+        "attachments": [
+            {
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": ":small_blue_diamond: *Commands* :small_blue_diamond:"
+                        }
+                    },
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": (
+                                "`search [bussiness]` Returns top 10 bussinesses in San Francisco, CA.\n\n"
+                                "`search [bussiness], [location]` Returns 10 bussinesses based on the provided location."
+                            )
+                        }
+                    },
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": ":small_blue_diamond: *Examples* :small_blue_diamond:"
+                        }
+                    },
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": (
+                                "`search milk tea`\n\n"
+                                "`search popcorn chicken, Oakland CA`"
+                            )
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+
 @slack_event_adapter.on('reaction_added')
 def reaction(payload):
     event = payload.get('event', {})
@@ -205,7 +241,11 @@ def reaction(payload):
     message = welcome.get_message()
     updated_message = slack_web_client.chat_update(**message)
     welcome.timestamp = updated_message['ts']
-    
+
+    if welcome.completed:
+        response = show_commands(user_id)
+        slack_web_client.chat_postMessage(channel=channel_id, **response)
+
 
 @slack_event_adapter.on('message')
 def handle_message(payload):
@@ -214,33 +254,26 @@ def handle_message(payload):
     channel_id = event.get('channel')
     text = event.get('text')
 
-    default_message = "I'm sorry. I don't understand. Please type *help* to see all commands."
+    default_message = "I'm sorry. I don't understand."
     message = None
 
     if user_id != None and BOT_ID != user_id:
-        if 'hello' or 'hi' in text.lower():
-            # message = "Hello <@%s>! :wave:" % user_id
+        if text.lower() == 'hello' or text.lower() == 'hi':
             send_welcome_message(channel_id, user_id)
 
-        # if "help" in text.lower():
-        #     slack_web_client.chat_postMessage(channel=channel_id, **msg)
+        if "help" in text.lower():
+            slack_web_client.chat_postMessage(channel=channel_id, **msg)
 
-        # if "search" in text.lower():
-        #     user_response = text[6:].split(", ")
-        #     location = None
-        #     if len(user_response) > 1:
-        #         location = user_response[1]
-        #     term = user_response[0]
-        #     result = search(term, location)
-        #     message = display_search(result, location)
-        #     slack_web_client.chat_postMessage(channel=channel_id, **message)
-        #     return
-
-        # if "set location" in text.lower():
-        #     change_location(text[13:])
-        #     message = "you changed location"
-
-        # slack_web_client.chat_postMessage(channel=channel_id, text=message or default_message)
+        if "search" in text.lower():
+            user_response = text[6:].split(", ")
+            location = None
+            if len(user_response) > 1:
+                location = user_response[1]
+            term = user_response[0]
+            result = search(term, location)
+            message = display_search(result, location)
+            slack_web_client.chat_postMessage(channel=channel_id, **message)
+            return
 
 if __name__ == "__main__":
     app.run(debug=True)
