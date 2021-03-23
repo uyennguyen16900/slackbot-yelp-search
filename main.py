@@ -192,7 +192,7 @@ def show_commands(user):
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": ":small_blue_diamond: *Commands* :small_blue_diamond:"
+                            "text": ":paw_prints: *Commands* :paw_prints:"
                         }
                     },
                     {
@@ -209,7 +209,7 @@ def show_commands(user):
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": ":small_blue_diamond: *Examples* :small_blue_diamond:"
+                            "text": ":paw_prints: *Examples* :paw_prints:"
                         }
                     },
                     {
