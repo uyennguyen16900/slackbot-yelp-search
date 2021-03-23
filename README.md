@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="/slackbot.png" height="300">
+  <img src="/bot.png" height="300">
 </p>
 
 # CraveBot
