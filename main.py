@@ -71,7 +71,7 @@ class WelcomeMessage:
         if not self.completed:
             checkmark = ':white_medium_square:'
 
-        text = f'{checkmark} Add an emoji reaction to show how you feel today. :eyes:'
+        text = f'{checkmark} Add an emoji reaction to show how you feel today. 🤔'
 
         return [{'type': 'section', 'text': {'type': 'mrkdwn', 'text': text}}]
 
